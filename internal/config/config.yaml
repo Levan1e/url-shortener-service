@@ -1,0 +1,12 @@
+postgres:
+  host: localhost
+  port: 6500
+  user: postgres
+  password: 1703
+  database: url-shortener
+
+server:
+  host: localhost
+  port: 8000
+
+migrations_dir: migrations

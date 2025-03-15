@@ -1,119 +1,63 @@
 package service
 
 import (
-	"crypto/rand"
-	"errors"
-	"math/big"
-	"time"
+	"context"
+
+	"github.com/Levan1e/url-shortener-service/internal/domain"
+	"github.com/Levan1e/url-shortener-service/internal/utils"
 )
 
 const (
-	charset        = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 	shortURLLength = 10
 	maxAttempts    = 5
 )
 
 type Storage interface {
-	Save(originalURL, shortURL string) error
-
-	GetShort(originalURL string) (string, error)
-
-	GetOriginal(shortURL string) (string, error)
-}
-
-type SaveTask struct {
-	originalURL string
-	shortURL    string
-	result      chan error
-}
-
-type AsyncSaver struct {
-	storage Storage
-	tasks   chan SaveTask
-}
-
-func NewAsyncSaver(storage Storage, workerCount int) *AsyncSaver {
-	saver := &AsyncSaver{
-		storage: storage,
-		tasks:   make(chan SaveTask, 1000),
-	}
-	for i := 0; i < workerCount; i++ {
-		go saver.worker()
-	}
-	return saver
-}
-
-func (a *AsyncSaver) worker() {
-	for task := range a.tasks {
-		err := a.storage.Save(task.originalURL, task.shortURL)
-		task.result <- err
-	}
-}
-
-func (a *AsyncSaver) SaveAsync(originalURL, shortURL string) error {
-	result := make(chan error, 1)
-	task := SaveTask{
-		originalURL: originalURL,
-		shortURL:    shortURL,
-		result:      result,
-	}
-	a.tasks <- task
-	select {
-	case err := <-result:
-		return err
-	case <-time.After(5 * time.Second):
-		return errors.New("timeout saving URL")
-	}
+	Save(ctx context.Context, originalURL, shortURL string) error
+	GetShort(ctx context.Context, originalURL string) (string, error)
+	GetOriginal(ctx context.Context, shortURL string) (string, error)
 }
 
 type ShortenerService struct {
-	storage    Storage
-	asyncSaver *AsyncSaver
+	storage Storage
 }
 
 func NewShortenerService(storage Storage) *ShortenerService {
 	return &ShortenerService{
-		storage:    storage,
-		asyncSaver: NewAsyncSaver(storage, 5),
+		storage: storage,
 	}
 }
 
-func (s *ShortenerService) Shorten(originalURL string) (string, error) {
-	if short, err := s.storage.GetShort(originalURL); err == nil && short != "" {
+func (s *ShortenerService) GetShortenByOriginal(ctx context.Context, originalURL string) (string, error) {
+	if short, err := s.storage.GetShort(ctx, originalURL); err != nil {
+		return "", err
+	} else if short != "" {
 		return short, nil
 	}
 
-	var shortURL string
-	var err error
-
-	for i := 0; i < maxAttempts; i++ {
-		shortURL, err = generateRandomString(shortURLLength)
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		shortUrl, err := utils.GenerateRandomString(shortURLLength)
 		if err != nil {
 			return "", err
 		}
-
-		err = s.asyncSaver.SaveAsync(originalURL, shortURL)
-		if err == nil {
-			return shortURL, nil
-		}
-	}
-
-	return "", errors.New("не удалось сгенерировать уникальный короткий URL")
-}
-
-func generateRandomString(n int) (string, error) {
-	result := make([]byte, n)
-	charsetLength := big.NewInt(int64(len(charset)))
-	for i := 0; i < n; i++ {
-		num, err := rand.Int(rand.Reader, charsetLength)
-		if err != nil {
+		if err := s.storage.Save(ctx, originalURL, shortUrl); err != nil {
+			if err == domain.ErrAlreadyExist {
+				continue
+			}
 			return "", err
 		}
-		result[i] = charset[num.Int64()]
+		return shortUrl, nil
 	}
-	return string(result), nil
+	return "", domain.InternalServerError
 }
 
-func (s *ShortenerService) Resolve(shortURL string) (string, error) {
-	return s.storage.GetOriginal(shortURL)
+func (s *ShortenerService) GetOriginalByShorten(ctx context.Context, shortURL string) (string, error) {
+	original, err := s.storage.GetOriginal(ctx, shortURL)
+	if err != nil {
+		return "", err
+	}
+	if original == "" {
+		return "", domain.UrlNotFound
+	}
+	return original, nil
 }

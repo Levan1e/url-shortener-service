@@ -1,8 +1,10 @@
 package memory
 
 import (
-	"errors"
+	"context"
 	"sync"
+
+	"github.com/Levan1e/url-shortener-service/internal/domain"
 )
 
 type MemoryStorage struct {
@@ -18,46 +20,33 @@ func NewStorage() *MemoryStorage {
 	}
 }
 
-func (s *MemoryStorage) Save(originalURL, shortURL string) error {
+func (s *MemoryStorage) Save(_ context.Context, originalURL, shortURL string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	if existing, exists := s.shortToOriginal[shortURL]; exists {
-		if existing != originalURL {
-			return errors.New("короткий URL уже используется для другого оригинального URL")
-		}
-		return nil
+	if _, exist := s.shortToOriginal[shortURL]; exist {
+		return domain.ErrAlreadyExist
 	}
-
-	if existing, exists := s.originalToShort[originalURL]; exists {
-		if existing != shortURL {
-			return errors.New("оригинальный URL уже сопоставлен с другим коротким URL")
-		}
-		return nil
-	}
-
 	s.originalToShort[originalURL] = shortURL
 	s.shortToOriginal[shortURL] = originalURL
-
 	return nil
 }
 
-func (s *MemoryStorage) GetShort(originalURL string) (string, error) {
+func (s *MemoryStorage) GetShort(_ context.Context, originalURL string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if short, exists := s.originalToShort[originalURL]; exists {
 		return short, nil
 	}
-	return "", errors.New("короткий URL для данного оригинального URL не найден")
+	return "", nil
 }
 
-func (s *MemoryStorage) GetOriginal(shortURL string) (string, error) {
+func (s *MemoryStorage) GetOriginal(_ context.Context, shortURL string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if original, exists := s.shortToOriginal[shortURL]; exists {
 		return original, nil
 	}
-	return "", errors.New("оригинальный URL для данного короткого URL не найден")
+	return "", nil
 }
