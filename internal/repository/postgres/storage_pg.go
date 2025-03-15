@@ -4,15 +4,23 @@ import (
 	"context"
 
 	"github.com/Levan1e/url-shortener-service/internal/domain"
-	postgres_helpers "github.com/Levan1e/url-shortener-service/pkg/postgres"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type PostgresStorage struct {
-	pool *pgxpool.Pool
+// Интерфейс для моков и реального пула соединений
+type PgxPoolInterface interface {
+	Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
 }
 
-func NewStorage(pool *pgxpool.Pool) *PostgresStorage {
+// PostgresStorage теперь использует интерфейс PgxPoolInterface
+type PostgresStorage struct {
+	pool PgxPoolInterface
+}
+
+// Конструктор принимает PgxPoolInterface
+func NewStorage(pool PgxPoolInterface) *PostgresStorage {
 	return &PostgresStorage{pool: pool}
 }
 
@@ -34,10 +42,28 @@ func (s *PostgresStorage) Save(ctx context.Context, originalURL, shortURL string
 
 func (s *PostgresStorage) GetShort(ctx context.Context, originalURL string) (string, error) {
 	query := `SELECT short_url FROM urls WHERE original_url = $1;`
-	return postgres_helpers.Select[string](ctx, s.pool, query, originalURL)
+	var shortURL string
+	err := s.pool.QueryRow(ctx, query, originalURL).Scan(&shortURL)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return shortURL, nil
 }
 
 func (s *PostgresStorage) GetOriginal(ctx context.Context, shortURL string) (string, error) {
 	query := `SELECT original_url FROM urls WHERE short_url = $1;`
-	return postgres_helpers.Select[string](ctx, s.pool, query, shortURL)
+	var originalURL string
+	err := s.pool.QueryRow(ctx, query, shortURL).Scan(&originalURL)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return originalURL, nil
 }
