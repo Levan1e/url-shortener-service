@@ -23,7 +23,6 @@ func BuildResponse[T any](w http.ResponseWriter, content T) {
 		SetHttpError(w, err)
 		return
 	}
-	//w.WriteHeader(http.StatusOK)
 }
 
 func SetHttpError(w http.ResponseWriter, e error) {

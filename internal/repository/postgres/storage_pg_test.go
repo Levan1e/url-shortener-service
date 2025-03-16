@@ -14,7 +14,6 @@ import (
 	"github.com/Levan1e/url-shortener-service/internal/repository/postgres/mocks"
 )
 
-// 📌 Мок для `pgx.Row` (так как `mockgen` его не создает автоматически)
 type MockRow struct {
 	scanFunc func(dest ...interface{}) error
 }
@@ -23,7 +22,6 @@ func (m *MockRow) Scan(dest ...interface{}) error {
 	return m.scanFunc(dest...)
 }
 
-// Функция для создания мока `pgx.Row`
 func NewMockRow(scanFunc func(dest ...interface{}) error) pgx.Row {
 	return &MockRow{scanFunc: scanFunc}
 }
@@ -43,7 +41,7 @@ func TestPostgresStorage_Save_Duplicate(t *testing.T) {
 
 	mockPool.EXPECT().
 		Exec(gomock.Any(), gomock.Eq(query), gomock.Eq("http://example.com"), gomock.Eq("abc123")).
-		Return(pgconn.NewCommandTag("INSERT 0"), nil) // 0 rows affected → дубликат
+		Return(pgconn.NewCommandTag("INSERT 0"), nil)
 
 	err := storage.Save(context.Background(), "http://example.com", "abc123")
 	assert.ErrorIs(t, err, domain.ErrAlreadyExist)
@@ -58,9 +56,8 @@ func TestPostgresStorage_GetShort_Success(t *testing.T) {
 
 	query := `SELECT short_url FROM urls WHERE original_url = $1;`
 
-	// Используем кастомный мок `NewMockRow`
 	mockRow := NewMockRow(func(dest ...interface{}) error {
-		*dest[0].(*string) = "abc123" // Записываем "abc123" в переменную
+		*dest[0].(*string) = "abc123"
 		return nil
 	})
 

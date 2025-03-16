@@ -1,0 +1,31 @@
+services:
+  shortener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GO_VERSION: "1.23"
+        ALPINE_VERSION: "3.21"
+    container_name: shortener
+    ports:
+      - "8000:8000"
+    environment:
+      - STORAGE=postgres
+      - DATABASE_URL=postgres://postgres:1703@db:5432/url-shortener?sslmode=disable
+    depends_on:
+      - db
+
+  db:
+    image: postgres:latest
+    container_name: db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1703
+      POSTGRES_DB: url-shortener
+    ports:
+      - "6500:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

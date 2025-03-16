@@ -26,10 +26,17 @@ func NewHandler(shortener ShortenerService) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
+
 	r.Route("/v1", func(r chi.Router) {
 		r.Post("/shorten", h.CreateShortURL)
 		r.Get("/{url}", h.GetOriginalURL)
+		r.Get("/health", h.HealthCheck)
 	})
+}
+
+func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
 }
 
 func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {

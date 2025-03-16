@@ -15,7 +15,6 @@ func TestMemoryStorage_Save_Success(t *testing.T) {
 	err := storage.Save(context.Background(), "http://example.com", "abc123")
 	assert.NoError(t, err)
 
-	// Проверяем, что URL действительно сохранился
 	short, err := storage.GetShort(context.Background(), "http://example.com")
 	assert.NoError(t, err)
 	assert.Equal(t, "abc123", short)
@@ -26,7 +25,6 @@ func TestMemoryStorage_Save_Duplicate(t *testing.T) {
 	err := storage.Save(context.Background(), "http://example.com", "abc123")
 	assert.NoError(t, err)
 
-	// Повторное сохранение с таким же shortURL должно вернуть ошибку
 	err = storage.Save(context.Background(), "http://example.com", "abc123")
 	assert.ErrorIs(t, err, domain.ErrAlreadyExist)
 }
@@ -34,8 +32,6 @@ func TestMemoryStorage_Save_Duplicate(t *testing.T) {
 func TestMemoryStorage_GetShort_NotFound(t *testing.T) {
 	storage := memory.NewStorage()
 	short, err := storage.GetShort(context.Background(), "http://unknown.com")
-
-	// Ожидаем, что запись не найдена
 	assert.NoError(t, err)
 	assert.Empty(t, short)
 }
@@ -44,7 +40,6 @@ func TestMemoryStorage_GetOriginal_NotFound(t *testing.T) {
 	storage := memory.NewStorage()
 	original, err := storage.GetOriginal(context.Background(), "xyz123")
 
-	// Ожидаем, что запись не найдена
 	assert.NoError(t, err)
 	assert.Empty(t, original)
 }
@@ -68,7 +63,6 @@ func TestMemoryStorage_ConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 
-	// Проверяем, что запись действительно одна
 	short, err := storage.GetShort(context.Background(), "http://example.com")
 	assert.NoError(t, err)
 	assert.Equal(t, "abc123", short)

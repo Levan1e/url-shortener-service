@@ -8,18 +8,15 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Интерфейс для моков и реального пула соединений
 type PgxPoolInterface interface {
 	Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
 	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
 }
 
-// PostgresStorage теперь использует интерфейс PgxPoolInterface
 type PostgresStorage struct {
 	pool PgxPoolInterface
 }
 
-// Конструктор принимает PgxPoolInterface
 func NewStorage(pool PgxPoolInterface) *PostgresStorage {
 	return &PostgresStorage{pool: pool}
 }
